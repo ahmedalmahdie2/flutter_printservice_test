@@ -32,20 +32,11 @@ import io.flutter.plugin.common.MethodChannel;
 
 public class FlutterMainActivity extends FlutterActivity {
     private static final String CHANNEL = "com.izam.dev/print_service";
-    private static final int PERMISSION_BLUETOOTH = 1;
-    static Bundle _savedInstanceState = null;
 
     private BluetoothConnection[] devices = null;
     private ArrayList<String> devicesInfo = null;
     private BluetoothConnection chosenDevice = null;
 
-//    @Override
-//    protected void onCreate(Bundle savedInstanceState) {
-//        super.onCreate(savedInstanceState);
-//        _savedInstanceState = savedInstanceState;
-//        setContentView(R.layout.activity_main);
-//        initializePrintService();
-//    }
 
     public void initializePrintService()
     {
@@ -101,27 +92,6 @@ public class FlutterMainActivity extends FlutterActivity {
         new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL)
                 .setMethodCallHandler(
                         (call, result) -> {
-                            if(call.method.equals("getBatteryLevel")) {
-                                initializePrintService();
-                                int batteryLevel = getBatteryLevel();
-                                if(batteryLevel != -1)
-                                {
-                                    result.success(batteryLevel);
-                                }
-                                else {
-                                    result.error("UNAVAILABLE", "Battery level not avaialble.", null);
-                                }
-                            }
-                            else
-                            {
-                                result.notImplemented();
-                            }
-                        }
-                );
-
-        new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL)
-                .setMethodCallHandler(
-                        (call, result) -> {
                             if(call.method.equals("getBluetoothPrinters")) {
                                 initializePrintService();
                                 devicesInfo = getBluetoothPrintersInfo();
@@ -139,18 +109,6 @@ public class FlutterMainActivity extends FlutterActivity {
                             }
                         }
                 );
-    }
-
-    private int getBatteryLevel() {
-        int batteryLevel = -1;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            BatteryManager batteryManager = (BatteryManager) getSystemService(BATTERY_SERVICE);
-            batteryLevel = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
-        } else {
-            Intent intent = new ContextWrapper(getApplicationContext()).registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-            batteryLevel = (intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) * 100) / intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-        }
-        return batteryLevel;
     }
 
     @SuppressLint("MissingPermission")
