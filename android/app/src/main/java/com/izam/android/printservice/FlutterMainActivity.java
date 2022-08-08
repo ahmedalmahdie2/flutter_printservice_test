@@ -1,5 +1,6 @@
 package com.izam.android.printservice;
 
+import android.annotation.SuppressLint;
 import android.app.Fragment;
 import android.content.ContextWrapper;
 import android.content.Intent;
@@ -23,6 +24,8 @@ import androidx.print.PrintHelper;
 import com.dantsu.escposprinter.connection.bluetooth.BluetoothConnection;
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader;
 
+import java.util.ArrayList;
+
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.engine.FlutterEngine;
 import io.flutter.plugin.common.MethodChannel;
@@ -33,6 +36,8 @@ public class FlutterMainActivity extends FlutterActivity {
     static Bundle _savedInstanceState = null;
 
     private BluetoothConnection[] devices = null;
+    private ArrayList<String> devicesInfo = null;
+    private BluetoothConnection chosenDevice = null;
 
 //    @Override
 //    protected void onCreate(Bundle savedInstanceState) {
@@ -119,10 +124,10 @@ public class FlutterMainActivity extends FlutterActivity {
                         (call, result) -> {
                             if(call.method.equals("getBluetoothPrinters")) {
                                 initializePrintService();
-                                devices = getBluetoothPrinters();
-                                if(devices != null)
+                                devicesInfo = getBluetoothPrintersInfo();
+                                if(devicesInfo != null)
                                 {
-                                    result.success(devices.toString());
+                                    result.success(devicesInfo.toString());
                                 }
                                 else {
                                     result.error("UNAVAILABLE", "Bluetooth printers are not avaialble.", null);
@@ -148,9 +153,32 @@ public class FlutterMainActivity extends FlutterActivity {
         return batteryLevel;
     }
 
-    private BluetoothConnection[] getBluetoothPrinters() {
+    @SuppressLint("MissingPermission")
+    private ArrayList<String> getBluetoothPrintersInfo() {
+        if(devicesInfo != null) {
+            devicesInfo.clear();
+        }
+        else {
+            devicesInfo = new ArrayList<String>();
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            return devices = IzamPrintService.getConnectedDevicesList();
+            devices = IzamPrintService.getConnectedDevicesList();
+            if(devices != null && devices.length > 0)
+            {
+                for(BluetoothConnection device : devices)
+                {
+                    devicesInfo.add(device.getDevice().getName() + "|" + device.getDevice().getAddress());
+                }
+                return devicesInfo;
+            }
+        }
+        return null;
+    }
+
+    private BluetoothConnection setChosenBluetoothPrinter(String macAddress) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            return chosenDevice = IzamPrintService.setChosenDevices(macAddress);
         }
         return null;
     }

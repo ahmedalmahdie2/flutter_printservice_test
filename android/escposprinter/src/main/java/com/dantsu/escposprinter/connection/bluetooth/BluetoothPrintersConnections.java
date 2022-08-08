@@ -9,6 +9,8 @@ import androidx.annotation.Nullable;
 
 import com.dantsu.escposprinter.exceptions.EscPosConnectionException;
 
+import java.util.Objects;
+
 public class BluetoothPrintersConnections extends BluetoothConnections {
 
     /**
@@ -42,6 +44,56 @@ public class BluetoothPrintersConnections extends BluetoothConnections {
     }
 
     /**
+     * Easy way to connect to specific bluetooth printer paired / connected.
+     *
+     * @return a EscPosPrinterCommands instance
+     */
+    @Nullable
+    public static BluetoothConnection connectToSpecificPrinter(String macAddress) {
+        BluetoothPrintersConnections printers = new BluetoothPrintersConnections();
+        BluetoothConnection[] bluetoothPrinters = printers.getList();
+
+        if (bluetoothPrinters != null && bluetoothPrinters.length > 0) {
+            System.out.println("printers count, " + bluetoothPrinters.length + " bluetooth printers");
+            for (BluetoothConnection printer : bluetoothPrinters) {
+                try {
+                    if(!printer.isConnected() && Objects.equals(printer.getDevice().getAddress(), macAddress)) {
+                        Log.d("printers count", bluetoothPrinters.length + " bluetooth printers");
+                        return printer.connect();
+                    }
+                } catch (EscPosConnectionException e) {
+                    System.out.println("can't connect to bluetooth printer with address: " + macAddress);
+                    e.printStackTrace();
+                }
+            }
+        }
+        else
+        {
+            System.out.println("selectSpecificPrinter -> we don't have bluetooth printers!");
+        }
+        return null;
+    }
+
+    @Nullable
+    public static void disconnectOtherPrinters(String connectedPrinterMacAddress) {
+        BluetoothPrintersConnections printers = new BluetoothPrintersConnections();
+        BluetoothConnection[] bluetoothPrinters = printers.getList();
+
+        if (bluetoothPrinters != null && bluetoothPrinters.length > 0) {
+            for (BluetoothConnection otherPrinters : bluetoothPrinters)
+            {
+                if(otherPrinters.isConnected() && !Objects.equals(otherPrinters.getDevice().getAddress(), connectedPrinterMacAddress)) {
+                    otherPrinters.disconnect();
+                }
+            }
+        }
+        else
+        {
+            System.out.println("disconnectOtherPrinters -> we don't have bluetooth printers!");
+        }
+    }
+
+    /**
      * Get a list of bluetooth printers.
      *
      * @return an array of EscPosPrinterCommands
@@ -52,12 +104,12 @@ public class BluetoothPrintersConnections extends BluetoothConnections {
         BluetoothConnection[] bluetoothDevicesList = super.getList();
 
         if (bluetoothDevicesList == null) {
-            Log.d("Bluetooth", ", we don't have bluetooth printers!");
+            System.out.println("Bluetooth, we don't have bluetooth printers!");
             return null;
         }
         else
         {
-            Log.d("Bluetooth", ", we still have bluetooth printers!");
+            System.out.println("Bluetooth, we still have bluetooth printers!");
         }
 
         int i = 0;
@@ -68,11 +120,11 @@ public class BluetoothPrintersConnections extends BluetoothConnections {
             int majDeviceCl = device.getBluetoothClass().getMajorDeviceClass(),
                     deviceCl = device.getBluetoothClass().getDeviceClass();
 
-            if (majDeviceCl == BluetoothClass.Device.Major.IMAGING && (deviceCl == 1664 || deviceCl == BluetoothClass.Device.Major.IMAGING)) {
+            if (majDeviceCl == BluetoothClass.Device.Major.IMAGING && (deviceCl == BluetoothClass.Device.Major.IMAGING || deviceCl == 1664)) {
                 printersTmp[i++] = new BluetoothConnection(device);
             }
         }
-        Log.d("getList", "printers count: " + bluetoothDevicesList.length);
+        System.out.println("getList, printers count: " + bluetoothDevicesList.length);
 
         System.arraycopy(printersTmp, 0, bluetoothDevicesList, 0, i);
         return bluetoothDevicesList;

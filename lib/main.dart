@@ -33,6 +33,7 @@ class _MyHomePageState extends State<MyHomePage> {
   static const platform = MethodChannel('com.izam.dev/print_service');
   String _batteryLevel = "Unknown battery level";
   dynamic _bluetoothPrinters;
+  Map<String, String> _bluetoothPrintersInfo = <String, String>{};
 
   Future<void> _getBatteryLevel() async {
     String batteryLevel;
@@ -50,18 +51,30 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<dynamic> _getBluetoothPrinters() async {
     dynamic bluetoothPrinters;
-    List<Map<String, dynamic>> bluetoothPrintersInfo;
+    Map<String, String> bluetoothPrintersInfo = <String, String>{};
 
     try {
       bluetoothPrinters = await platform.invokeMethod('getBluetoothPrinters');
-      print(
-          "flutter main.dart _getBluetoothPrinters | bluetoothPrinters: ${bluetoothPrinters.toString()}");
+      final result = bluetoothPrinters.toString();
+      final parts = result.replaceAll('[', '').replaceAll(']', '').split(',');
+      for (var i = 0; i < parts.length; i++) {
+        final deviceInfoParts = parts[i].split("|");
+
+        if (deviceInfoParts.length > 1) {
+          bluetoothPrintersInfo
+              .addAll({deviceInfoParts[1]: deviceInfoParts.first});
+        }
+      }
+      for (var element in bluetoothPrintersInfo.entries) {
+        print("bluetoothPrintersInfo [${element.key}]: ${element.value}");
+      }
     } on PlatformException catch (e) {
       print("Failed to get bluetooth printers list: '${e.message}'.");
     }
 
     setState(() {
       _bluetoothPrinters = bluetoothPrinters;
+      _bluetoothPrintersInfo = bluetoothPrintersInfo;
     });
   }
 
@@ -86,10 +99,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: const Center(child: Text('Get bluetooth printers')),
               ),
             ),
-            if (_bluetoothPrinters != null && _bluetoothPrinters is List)
-              _bluetoothPrinters
-                  .map((printer) => Text(printer.toString()))
-                  .toList(),
+            ..._bluetoothPrintersInfo.entries.map((e) => Text(e.key)).toList(),
           ],
         ),
       ),

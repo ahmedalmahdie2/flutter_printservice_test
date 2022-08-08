@@ -1,6 +1,7 @@
 package com.izam.android.printservice;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -18,6 +19,7 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.dantsu.escposprinter.EscPosPrinterCommands;
@@ -48,6 +50,7 @@ public class IzamPrintService extends PrintService {
     PrinterInfo mThermalPrinter;
 
     public static BluetoothConnection[] devices = null;
+    public static BluetoothConnection chosenDevices = null;
 
     @Override
     public void onCreate() {
@@ -63,45 +66,41 @@ public class IzamPrintService extends PrintService {
         return new ThermalPrinterDiscoverySession(mThermalPrinter);
     }
 
-    Bitmap CropBitmapTransparency(Bitmap sourceBitmap)
-    {
+    Bitmap CropBitmapTransparency(Bitmap sourceBitmap) {
         int minX = sourceBitmap.getWidth();
         int minY = sourceBitmap.getHeight();
         int maxX = -1;
         int maxY = -1;
-        for(int y = 0; y < sourceBitmap.getHeight(); y++)
-        {
-            for(int x = 0; x < sourceBitmap.getWidth(); x++)
-            {
+        for (int y = 0; y < sourceBitmap.getHeight(); y++) {
+            for (int x = 0; x < sourceBitmap.getWidth(); x++) {
                 int alpha = (sourceBitmap.getPixel(x, y) >> 24) & 255;
-                if(alpha > 0)   // pixel is not 100% transparent
+                if (alpha > 0)   // pixel is not 100% transparent
                 {
-                    if(x < minX)
+                    if (x < minX)
                         minX = x;
-                    if(x > maxX)
+                    if (x > maxX)
                         maxX = x;
-                    if(y < minY)
+                    if (y < minY)
                         minY = y;
-                    if(y > maxY)
+                    if (y > maxY)
                         maxY = y;
                 }
             }
         }
-        if((maxX < minX) || (maxY < minY))
+        if ((maxX < minX) || (maxY < minY))
             return null; // Bitmap is entirely transparent
 
         // crop bitmap to non-transparent area and return:
         return Bitmap.createBitmap(sourceBitmap, minX, minY, (maxX - minX) + 1, (maxY - minY) + 1);
     }
 
-    Bitmap getScaledBitmap(Bitmap bitmap, float width, boolean filter)
-    {
-        return  Bitmap.createScaledBitmap(
-                        bitmap,
+    Bitmap getScaledBitmap(Bitmap bitmap, float width, boolean filter) {
+        return Bitmap.createScaledBitmap(
+                bitmap,
                 (int) width,
-                        Math.round(((float) bitmap.getHeight()) * width / ((float) bitmap.getWidth())),
+                Math.round(((float) bitmap.getHeight()) * width / ((float) bitmap.getWidth())),
                 filter
-                );
+        );
     }
 
     private static Bitmap removeMargins2(Bitmap bmp, int color) {
@@ -195,8 +194,7 @@ public class IzamPrintService extends PrintService {
         return bmp2;
     }
 
-    void doPrintJobOnBluetoothPrinter(PrintJob printJob)
-    {
+    void doPrintJobOnBluetoothPrinter(PrintJob printJob) {
         Bitmap[] bitmaps = null;
 
         if (printJob.isQueued()) {
@@ -235,7 +233,7 @@ public class IzamPrintService extends PrintService {
             byte[] tempBytes = new byte[bb.remaining()];
             bb.get(tempBytes, 0, tempBytes.length);
 
-            String base64String= Base64.encodeToString(tempBytes, 0);
+            String base64String = Base64.encodeToString(tempBytes, 0);
 //            byte[] tempBytes02 = Base64.decode(base64String, 0);
             Log.d("bytearray base64", base64String != null ? base64String : "is NULL!");
             PDDocument document = PDDocument.load(tempBytes);
@@ -245,15 +243,13 @@ public class IzamPrintService extends PrintService {
             Log.d("bitmaps", bitmaps.length + "");
 
             float scale = 1;
-            if(bitmaps.length > 0)
-            {
+            if (bitmaps.length > 0) {
                 final Bitmap tempBitmap = pdfRenderer.renderImage(0, 1, ImageType.RGB);// pdfRenderer.renderImage(0, 1, Bitmap.Config.RGB_565);
                 scale = PRINTER_WIDTH / (float) tempBitmap.getWidth();
                 Log.d("scale", "" + scale + ", Width: ");
             }
 
-            for(int i = 0; i < bitmaps.length; i++)
-            {
+            for (int i = 0; i < bitmaps.length; i++) {
                 bitmaps[i] = CropBitmapTransparency(removeMargins2(pdfRenderer.renderImage(i, scale, ImageType.RGB), Color.WHITE));
             }
         } catch (Exception e) {
@@ -262,10 +258,10 @@ public class IzamPrintService extends PrintService {
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED) {
 
-            Log.d("doPrintJobOnBluetooth","bluetooth " + printJob.getDocument().getInfo().getName());
+            Log.d("doPrintJobOnBluetooth", "bluetooth " + printJob.getDocument().getInfo().getName());
             // Your printing code/method HERE
-            try{
-                EscPosPrinterCommands printerCommands = new EscPosPrinterCommands(BluetoothPrintersConnections.selectFirstPaired());
+            try {
+                EscPosPrinterCommands printerCommands = new EscPosPrinterCommands(chosenDevices != null ? chosenDevices : BluetoothPrintersConnections.selectFirstPaired());
                 try {
                     printerCommands.connect();
                     Log.d("getAsyncEscPosPrinter", "printerCommands.connect()");
@@ -275,18 +271,16 @@ public class IzamPrintService extends PrintService {
 
                     ArrayList<Byte> allBytes = new ArrayList<Byte>();
 
-                    for(int i =0; i < bitmaps.length; i++)
-                    {
+                    for (int i = 0; i < bitmaps.length; i++) {
                         final byte[] bytes = printerCommands.bitmapToBytes(bitmaps[i]);
-                        for(int j =0; j < bytes.length; j++)
-                        {
+                        for (int j = 0; j < bytes.length; j++) {
                             allBytes.add(bytes[j]);
                         }
                     }
                     Byte[] array = (Byte[]) allBytes.toArray(new Byte[allBytes.size()]);
                     byte[] array02 = new byte[array.length];
                     int i = 0;
-                    for(Byte b: array)
+                    for (Byte b : array)
                         array02[i++] = b.byteValue();
 
                     printerCommands.printImage(array02);
@@ -300,24 +294,33 @@ public class IzamPrintService extends PrintService {
                 } catch (EscPosConnectionException e) {
                     e.printStackTrace();
                 }
-            }catch(Exception e)
-            {
-                Log.d("createWebPrintJob Error",e.toString());
+            } catch (Exception e) {
+                Log.d("createWebPrintJob Error", e.toString());
             }
         }
         printJob.complete();
     }
 
+    @SuppressLint("MissingPermission")
     @Nullable
     public static BluetoothConnection[] getConnectedDevicesList() {
         BluetoothPrintersConnections printers = new BluetoothPrintersConnections();
         devices = printers.getList();
-        if(devices != null)
-            for(int i = 0; i < devices.length; i++)
-            {
-                System.out.println("printer: " + devices[i].getDevice().toString());
+        if (devices != null)
+            for (int i = 0; i < devices.length; i++) {
+                System.out.println("device [" + i + "]: " + devices[i].getDevice().toString() + ", name: " + devices[i].getDevice().getName() + ", address: " + devices[i].getDevice().getAddress() + ", bond state: " + devices[i].getDevice().getBondState());
             }
         return devices;
+    }
+
+    @Nullable
+    public static BluetoothConnection setChosenDevices(String macAddress) {
+        BluetoothPrintersConnections printers = new BluetoothPrintersConnections();
+        chosenDevices = printers.connectToSpecificPrinter(macAddress);
+        if (chosenDevices != null) {
+            System.out.println("device : " + chosenDevices.getDevice().toString() + ", name: " + chosenDevices.getDevice().getName() + ", address: " + chosenDevices.getDevice().getAddress() + ", bond state: " + chosenDevices.getDevice().getBondState());
+        }
+        return chosenDevices;
     }
 
     @Override
